@@ -1,26 +1,52 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 
 const CTA = () => {
+  const { user } = useAuth();
+
   return (
-    <section className="py-40 px-8 text-center bg-background relative overflow-hidden">
-      <div className="section-animate technical-grid opacity-10"></div>
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[200%] h-full opacity-5 pointer-events-none">
-        <div className="w-full h-full bg-[repeating-linear-gradient(90deg,#fff,#fff_1px,transparent_1px,transparent_100px)]"></div>
-      </div>
-      <div className="relative z-10 max-w-3xl mx-auto">
-        <h2 className="text-5xl md:text-7xl font-headline font-black uppercase tracking-tighter mb-8 leading-none">
-          The Void Awaits Your Commands.
-        </h2>
-        <p className="text-on-surface-variant text-lg md:text-xl mb-12 font-body">
-          Step into the next evolution of cognitive partnership. No friction. No limits. Just pure execution.
-        </p>
-        <div className="inline-block relative group">
-          <div className="absolute inset-0 bg-primary translate-x-2 translate-y-2 group-hover:translate-x-0 group-hover:translate-y-0 transition-transform"></div>
-          <Link to="/register" className="relative bg-black text-white px-16 py-6 font-headline font-black text-2xl uppercase tracking-widest border-2 border-primary transition-colors hover:bg-primary hover:text-black inline-block">
-            INITIALIZE NOW
-          </Link>
+    <section id="initialize" className="py-36 px-6 md:px-12 text-center bg-black relative border-t border-white/10 overflow-hidden">
+      <div className="section-animate technical-grid opacity-15"></div>
+
+      <div className="relative z-10 max-w-4xl mx-auto">
+        <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/20 mb-6">
+          <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+          <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-300">
+            READY FOR DIRECT DEPLOYMENT
+          </span>
         </div>
+
+        <h2 className="text-4xl sm:text-6xl md:text-7xl font-headline font-black uppercase tracking-tighter text-white mb-6 leading-tight">
+          INITIALIZE YOUR COGNITIVE PARTNERSHIP.
+        </h2>
+
+        <p className="text-neutral-400 text-base md:text-xl mb-12 font-body max-w-2xl mx-auto leading-relaxed">
+          Zero cold starts. Persistent multi-session history. Tap into sub-second AI inference built for engineers, researchers, and creators.
+        </p>
+
+        <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+          <Link
+            to={user ? "/terminal" : "/register"}
+            className="w-full sm:w-auto bg-white text-black px-12 py-5 font-headline font-black text-xl uppercase tracking-wider hover:bg-neutral-200 transition-all border-2 border-white shadow-[6px_6px_0px_0px_rgba(255,255,255,0.4)] hover:shadow-none hover:translate-x-1 hover:translate-y-1 flex items-center justify-center gap-3"
+          >
+            <span>{user ? "ENTER TERMINAL" : "REQUEST OPERATIVE ACCESS"}</span>
+            <span className="material-symbols-outlined">arrow_forward</span>
+          </Link>
+
+          {!user && (
+            <Link
+              to="/login"
+              className="w-full sm:w-auto bg-transparent text-white px-8 py-5 font-headline font-bold text-lg uppercase tracking-wider border-2 border-white/30 hover:border-white hover:bg-white/10 transition-colors"
+            >
+              INITIALIZE SESSION
+            </Link>
+          )}
+        </div>
+
+        <p className="text-[11px] font-mono text-neutral-500 uppercase tracking-widest mt-8">
+          NO CREDIT CARD REQUIRED // IMMEDIATE ACTIVATION
+        </p>
       </div>
     </section>
   );

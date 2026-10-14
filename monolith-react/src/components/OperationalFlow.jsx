@@ -1,40 +1,83 @@
 import React from 'react';
 
+const steps = [
+  {
+    num: '01',
+    title: 'Authenticate Link',
+    subtitle: 'Zero friction setup',
+    description:
+      'Log in or register an operative identity. HttpOnly encrypted tokens establish an immediate, tamper-proof session without complex setup.',
+    action: 'SESSION ESTABLISHED',
+  },
+  {
+    num: '02',
+    title: 'Dispatch Directives',
+    subtitle: 'Natural language input',
+    description:
+      'Enter coding challenges, complex questions, or synthesis tasks into the Monolith Terminal. Groq LPUs execute responses at ~500 tokens per second.',
+    action: 'LPU PROCESSING',
+  },
+  {
+    num: '03',
+    title: 'Iterate & Archive',
+    subtitle: 'Persistent memory',
+    description:
+      'Explore follow-ups with full multi-turn context retention. Every conversation is automatically archived in MongoDB Atlas for persistent access.',
+    action: 'CLOUD PERSISTED',
+  },
+];
+
 const OperationalFlow = () => {
   return (
-    <section className="relative px-8 py-24 bg-background border-t border-outline-variant overflow-hidden">
-      <div className="section-animate technical-grid opacity-10"></div>
+    <section id="flow" className="relative px-6 md:px-12 py-32 bg-background border-t border-white/10 overflow-hidden">
+      <div className="section-animate technical-grid opacity-15"></div>
+
       <div className="max-w-7xl mx-auto relative z-10">
-        <div className="mb-12">
-          <span className="font-headline text-sm uppercase tracking-[0.3em] text-outline">No Setup. No Training. No Manual.</span>
-          <h2 className="text-4xl md:text-5xl font-headline font-bold uppercase tracking-tighter text-white mt-2">Simple as 1, 2, 3</h2>
-          <p className="text-on-surface-variant text-lg mt-4 max-w-2xl font-body">Just open it and start — your AI assistant is ready from second one.</p>
+        <div className="mb-16 border-l-4 border-white pl-6">
+          <span className="font-mono text-xs uppercase tracking-[0.3em] text-neutral-400">
+            OPERATIONAL ARCHITECTURE // PROTOCOL
+          </span>
+          <h2 className="text-4xl md:text-5xl font-headline font-black uppercase tracking-tighter text-white mt-2">
+            THREE PHASES OF EXECUTION
+          </h2>
+          <p className="text-neutral-400 text-base md:text-lg mt-3 max-w-2xl font-body">
+            From user prompt to deep LLM reasoning in fractions of a second. No latency, no clutter, pure output.
+          </p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
-          {/* Step 1 */}
-          <div className="bg-white text-black p-12 border-2 border-white flex flex-col justify-between min-h-[300px] hover:bg-black hover:text-white transition-colors duration-200">
-            <div className="text-4xl font-headline font-black">01</div>
-            <div>
-              <h3 className="text-2xl font-headline font-black uppercase tracking-tighter mb-2">Ask Anything</h3>
-              <p className="text-sm font-body uppercase tracking-wider opacity-80">Type your question, task, or idea in plain English. No special commands, no learning curve — just talk like you would to a friend.</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {steps.map((step, idx) => (
+            <div
+              key={idx}
+              className="bg-neutral-900/80 backdrop-blur-sm border-2 border-white/20 p-8 md:p-10 flex flex-col justify-between min-h-[340px] hover:border-white hover:bg-neutral-800/90 transition-all duration-200 group relative"
+            >
+              <div className="flex justify-between items-start">
+                <span className="text-5xl font-headline font-black text-white/30 group-hover:text-white transition-colors">
+                  {step.num}
+                </span>
+                <span className="text-[9px] font-mono uppercase tracking-widest text-emerald-400 px-2 py-1 bg-emerald-950/40 border border-emerald-500/30">
+                  {step.action}
+                </span>
+              </div>
+
+              <div className="mt-8">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-neutral-500 block mb-1">
+                  {step.subtitle}
+                </span>
+                <h3 className="text-2xl font-headline font-black uppercase tracking-tighter text-white mb-3">
+                  {step.title}
+                </h3>
+                <p className="text-sm font-body text-neutral-400 leading-relaxed group-hover:text-neutral-200 transition-colors">
+                  {step.description}
+                </p>
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between text-[10px] font-mono text-neutral-500 uppercase tracking-widest">
+                <span>PHASE {step.num} COMPLETE</span>
+                <span className="w-1.5 h-1.5 bg-white group-hover:scale-150 transition-transform"></span>
+              </div>
             </div>
-          </div>
-          {/* Step 2 */}
-          <div className="bg-black text-white p-12 border-2 border-white flex flex-col justify-between min-h-[300px] hover:bg-white hover:text-black transition-colors duration-200">
-            <div className="text-4xl font-headline font-black">02</div>
-            <div>
-              <h3 className="text-2xl font-headline font-black uppercase tracking-tighter mb-2">AI Gets to Work</h3>
-              <p className="text-sm font-body uppercase tracking-wider opacity-80">Your assistant instantly understands what you need and generates accurate, relevant responses — whether it's an answer, a draft, or a solution.</p>
-            </div>
-          </div>
-          {/* Step 3 */}
-          <div className="bg-white text-black p-12 border-2 border-white flex flex-col justify-between min-h-[300px] hover:bg-black hover:text-white transition-colors duration-200">
-            <div className="text-4xl font-headline font-black">03</div>
-            <div>
-              <h3 className="text-2xl font-headline font-black uppercase tracking-tighter mb-2">Use & Refine</h3>
-              <p className="text-sm font-body uppercase tracking-wider opacity-80">Copy, edit, or build on the output. Ask follow-ups, tweak the tone, or go deeper — your assistant adapts to exactly what you need.</p>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </section>

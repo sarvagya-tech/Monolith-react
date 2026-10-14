@@ -3,12 +3,106 @@ import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { sendMessage, getUserChats, getChatMessages } from "../service/axios";
 import { useAuth } from "../hooks/useAuth";
 
-const getErrorMessage = (error, fallbackMessage) =>
-  error?.response?.data?.message || error?.message || fallbackMessage;
+const starterPrompts = [
+  {
+    title: "System Architecture",
+    prompt: "Explain how Groq LPUs achieve ultra-low latency compared to traditional GPU clusters.",
+    tag: "INFRASTRUCTURE"
+  },
+  {
+    title: "Full-Stack Security",
+    prompt: "Write a complete Express.js middleware using HttpOnly cookies, JWT verification, and CORS configuration.",
+    tag: "CODE"
+  },
+  {
+    title: "Database Optimization",
+    prompt: "Explain MongoDB compound indexing strategies and how to avoid COLLSCAN bottlenecks.",
+    tag: "DATABASE"
+  },
+  {
+    title: "Technical Roadmapping",
+    prompt: "Draft an executive summary comparing monolithic vs microservice architecture for high-velocity teams.",
+    tag: "STRATEGY"
+  }
+];
 
 const formatTime = (timestamp) => {
   const date = timestamp ? new Date(timestamp) : new Date();
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+};
+
+// Formats text content with markdown-like code block extraction and copy button
+const FormattedMessage = ({ content, role }) => {
+  const [copiedIndex, setCopiedIndex] = useState(null);
+
+  const handleCopyCode = (code, index) => {
+    navigator.clipboard.writeText(code);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  };
+
+  // Simple parser to separate code blocks from text
+  const parts = [];
+  const codeBlockRegex = /```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = codeBlockRegex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: 'text', content: content.substring(lastIndex, match.index) });
+    }
+    parts.push({
+      type: 'code',
+      lang: match[1] || 'code',
+      content: match[2].trimEnd()
+    });
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < content.length) {
+    parts.push({ type: 'text', content: content.substring(lastIndex) });
+  }
+
+  if (role === 'user') {
+    return <div className="whitespace-pre-wrap font-body text-sm leading-relaxed">{content}</div>;
+  }
+
+  return (
+    <div className="space-y-3 font-body text-sm leading-relaxed">
+      {parts.map((part, idx) => {
+        if (part.type === 'code') {
+          return (
+            <div key={idx} className="my-3 border border-white/20 bg-neutral-950 font-mono text-xs overflow-hidden">
+              <div className="flex justify-between items-center px-4 py-1.5 bg-neutral-900 border-b border-white/10 text-neutral-400">
+                <span className="uppercase text-[10px] tracking-widest text-emerald-400 font-bold">
+                  {part.lang}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleCopyCode(part.content, idx)}
+                  className="flex items-center gap-1 text-[10px] text-neutral-300 hover:text-white transition-colors uppercase font-mono px-2 py-0.5 border border-white/10 hover:border-white"
+                >
+                  <span className="material-symbols-outlined text-[12px]">
+                    {copiedIndex === idx ? 'check' : 'content_copy'}
+                  </span>
+                  <span>{copiedIndex === idx ? 'COPIED' : 'COPY'}</span>
+                </button>
+              </div>
+              <pre className="p-4 overflow-x-auto text-neutral-200 leading-relaxed font-mono selection:bg-white selection:text-black">
+                <code>{part.content}</code>
+              </pre>
+            </div>
+          );
+        }
+
+        return (
+          <div key={idx} className="whitespace-pre-wrap leading-relaxed text-neutral-200">
+            {part.content}
+          </div>
+        );
+      })}
+    </div>
+  );
 };
 
 const ChatTerminal = () => {
@@ -18,6 +112,7 @@ const ChatTerminal = () => {
 
   const messageInputRef = useRef(null);
   const recentMessagesRef = useRef(null);
+  const messagesEndRef = useRef(null);
 
   const [messageInput, setMessageInput] = useState("");
   const [messages, setMessages] = useState([]);
@@ -26,6 +121,8 @@ const ChatTerminal = () => {
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState("");
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [copiedMessageId, setCopiedMessageId] = useState(null);
 
   // Fetch chat history on mount
   useEffect(() => {
@@ -34,12 +131,19 @@ const ChatTerminal = () => {
     }
   }, [user]);
 
+  // Handle URL query parameters (?prompt=...)
   useEffect(() => {
     const prompt = searchParams.get("prompt");
     if (prompt && !messageInput.trim()) {
       setMessageInput(prompt);
+      messageInputRef.current?.focus();
     }
-  }, [searchParams, messageInput]);
+  }, [searchParams]);
+
+  // Auto scroll to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, chatLoading]);
 
   const fetchHistory = async () => {
     setHistoryLoading(true);
@@ -66,29 +170,40 @@ const ChatTerminal = () => {
   const loadChat = async (id) => {
     setChatLoading(true);
     setChatError("");
+    setSidebarOpen(false);
     try {
       const chat = await getChatMessages(id);
       setChatId(chat._id);
       setMessages(chat.messages || []);
       messageInputRef.current?.focus();
     } catch (error) {
-      setChatError(getErrorMessage(error, "Failed to load chat history."));
+      setChatError(error?.message || "Failed to load chat history.");
     } finally {
       setChatLoading(false);
     }
   };
 
-  const handleSend = async () => {
-    const trimmedMessage = messageInput.trim();
+  const handleSend = async (overridePrompt) => {
+    const messageToSend = typeof overridePrompt === 'string' ? overridePrompt : messageInput;
+    const trimmedMessage = messageToSend.trim();
     if (!trimmedMessage || chatLoading) return;
 
     if (!user) {
-      setChatError("Identity verification failed. Please authenticate via the main portal.");
+      setChatError("Operative authentication required. Please initialize session via the login portal.");
       return;
     }
 
     setChatLoading(true);
     setChatError("");
+
+    // Optimistically push user message
+    const tempUserMsg = {
+      role: 'user',
+      content: trimmedMessage,
+      createdAt: new Date().toISOString()
+    };
+    setMessages(prev => [...prev, tempUserMsg]);
+    setMessageInput("");
 
     try {
       const payload = await sendMessage({
@@ -96,18 +211,17 @@ const ChatTerminal = () => {
         chatId,
       });
 
-      // If it was a new chat, refresh history
+      // If it was a new chat, refresh archive list
       if (!chatId) {
         fetchHistory();
       }
 
       setChatId(payload?.chatId || null);
       setMessages(payload?.messages || []);
-      setMessageInput("");
       messageInputRef.current?.focus();
     } catch (error) {
       setChatError(
-        getErrorMessage(error, "Unable to send message. Please try again.")
+        error?.message || "Unable to dispatch message to Groq LPU core. Please try again."
       );
     } finally {
       setChatLoading(false);
@@ -115,14 +229,10 @@ const ChatTerminal = () => {
   };
 
   const handleInputKeyDown = (event) => {
-    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+    if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       handleSend();
     }
-  };
-
-  const openArchive = () => {
-    recentMessagesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const startNewChat = () => {
@@ -130,98 +240,136 @@ const ChatTerminal = () => {
     setChatId(null);
     setChatError("");
     setMessageInput("");
+    setSidebarOpen(false);
     messageInputRef.current?.focus();
+  };
+
+  const copyFullMessage = (text, idx) => {
+    navigator.clipboard.writeText(text);
+    setCopiedMessageId(idx);
+    setTimeout(() => setCopiedMessageId(null), 2000);
   };
 
   if (authLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background text-primary font-mono text-xs uppercase tracking-widest">
-        Initializing Secure Connection...
+      <div className="flex h-screen items-center justify-center bg-black text-white font-mono text-xs uppercase tracking-widest">
+        <span className="w-2 h-2 bg-emerald-400 rounded-full animate-ping mr-3"></span>
+        INITIALIZING SECURE OPERATIVE LINK...
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden text-on-surface bg-background font-body">
-      <nav className="flex justify-between items-center w-full px-8 py-6 max-w-full bg-neutral-950 z-50">
-        <Link to="/#home" className="text-2xl font-black tracking-tighter text-white font-headline uppercase">
-          MONOLITH
-        </Link>
-        <div className="hidden md:flex gap-10">
-          <Link className="font-headline uppercase tracking-tighter font-bold text-neutral-500 hover:text-white transition-colors" to="/#flow">
+    <div className="flex flex-col h-screen overflow-hidden text-neutral-200 bg-black font-body">
+      {/* Top Header */}
+      <nav className="flex justify-between items-center w-full px-6 md:px-8 py-4 bg-neutral-950 border-b border-white/10 z-50">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="md:hidden text-white p-1 hover:bg-white/10"
+            aria-label="Toggle Sessions Sidebar"
+          >
+            <span className="material-symbols-outlined text-xl">menu</span>
+          </button>
+
+          <Link to="/#home" className="flex items-center gap-2 text-xl font-black tracking-tighter text-white font-headline uppercase">
+            <span className="w-2 h-2 bg-white"></span>
+            <span>MONOLITH</span>
+            <span className="text-[9px] font-mono border border-white/30 px-1.5 py-0.5 text-neutral-400 uppercase tracking-widest hidden sm:inline">
+              TERMINAL
+            </span>
+          </Link>
+        </div>
+
+        <div className="hidden md:flex items-center gap-8 font-headline uppercase tracking-tighter font-bold text-xs">
+          <Link className="text-neutral-400 hover:text-white transition-colors" to="/#home">
+            HOME
+          </Link>
+          <Link className="text-neutral-400 hover:text-white transition-colors" to="/#flow">
             SYSTEMS
           </Link>
-          <Link className="font-headline uppercase tracking-tighter font-bold text-white border-b-2 border-white pb-1" to="/terminal">
-            CORE
+          <Link className="text-white border-b-2 border-white pb-0.5" to="/terminal">
+            CORE TERMINAL
           </Link>
-          <Link className="font-headline uppercase tracking-tighter font-bold text-neutral-500 hover:text-white transition-colors" to="/#status">
-            NETWORK
+          <Link className="text-neutral-400 hover:text-white transition-colors" to="/#status">
+            METRICS
           </Link>
-          <button
-            onClick={openArchive}
-            className="font-headline uppercase tracking-tighter font-bold text-neutral-500 hover:text-white transition-colors"
-          >
-            ARCHIVE
-          </button>
         </div>
-        {user ? (
-          <button
-            onClick={handleLogout}
-            className="bg-white text-black px-6 py-2 font-headline uppercase tracking-tighter font-bold hover:bg-neutral-200 transition-none"
-          >
-            LOGOUT
-          </button>
-        ) : (
-          <Link
-            to="/login"
-            className="bg-white text-black px-6 py-2 font-headline uppercase tracking-tighter font-bold hover:bg-neutral-200 transition-none"
-          >
-            LOGIN
-          </Link>
-        )}
+
+        <div className="flex items-center gap-3">
+          {user ? (
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[11px] text-neutral-400 hidden sm:inline">
+                ID: <span className="text-white font-semibold">{user.fullname || user.email}</span>
+              </span>
+              <button
+                onClick={handleLogout}
+                className="bg-white text-black px-4 py-1.5 font-headline uppercase tracking-wider font-bold text-xs hover:bg-neutral-200 transition-none"
+              >
+                LOGOUT
+              </button>
+            </div>
+          ) : (
+            <Link
+              to="/login"
+              className="bg-white text-black px-5 py-1.5 font-headline uppercase tracking-wider font-bold text-xs hover:bg-neutral-200 transition-none"
+            >
+              AUTHENTICATE
+            </Link>
+          )}
+        </div>
       </nav>
 
-      <div className="flex flex-1 overflow-hidden">
-        <aside className="w-80 bg-surface-container-lowest flex flex-col border-r border-outline-variant/30">
-          <div className="p-6">
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Sidebar for Sessions */}
+        <aside
+          className={`fixed md:static inset-y-0 left-0 z-40 w-72 md:w-80 bg-neutral-950 flex flex-col border-r border-white/10 transition-transform duration-200 ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+          }`}
+        >
+          <div className="p-5 border-b border-white/10 flex items-center justify-between">
             <button
               onClick={startNewChat}
-              className="w-full flex items-center justify-between bg-primary text-on-primary px-4 py-4 font-label uppercase font-bold tracking-widest text-sm hover:invert transition-none disabled:opacity-60"
+              className="w-full flex items-center justify-between bg-white text-black px-4 py-3 font-headline uppercase font-bold tracking-wider text-xs hover:bg-neutral-200 transition-none disabled:opacity-50 shadow-[3px_3px_0px_0px_rgba(255,255,255,0.3)]"
               disabled={!user}
             >
-              <span>New Chat</span>
-              <span className="material-symbols-outlined">add</span>
+              <span>NEW THREAD</span>
+              <span className="material-symbols-outlined text-sm font-bold">add</span>
             </button>
           </div>
 
-          <div className="px-6 pb-6">
+          <div className="p-5 border-b border-white/10">
             {!user ? (
-              <div className="p-6 bg-surface-container-high border border-outline-variant/40 relative overflow-hidden group">
-                <div className="absolute top-0 left-0 w-1 h-full bg-primary/50"></div>
-                <h3 className="text-xs uppercase tracking-[0.2em] text-primary font-bold mb-4 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[14px] animate-pulse">lock</span>
-                  Identity Required
-                </h3>
-                <p className="text-[10px] uppercase font-mono text-outline leading-relaxed mb-6">
-                  Terminal access is restricted to authenticated operatives. Please establish a secure link via the main portal.
+              <div className="p-4 bg-neutral-900 border border-white/15">
+                <div className="flex items-center gap-2 text-xs font-mono uppercase text-emerald-400 font-bold mb-2">
+                  <span className="material-symbols-outlined text-[14px]">lock</span>
+                  <span>Operative Required</span>
+                </div>
+                <p className="text-[10px] font-mono text-neutral-400 leading-relaxed mb-4">
+                  Multi-session archive and Groq LLM processing require operative credentials.
                 </p>
                 <Link
                   to="/login"
-                  className="w-full bg-white text-black py-4 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-200 transition-colors"
+                  className="block w-full text-center bg-white text-black py-2.5 font-headline uppercase tracking-wider font-bold text-xs hover:bg-neutral-200"
                 >
-                  <span className="material-symbols-outlined text-[16px]">key</span>
-                  Authenticate
+                  AUTHENTICATE
                 </Link>
               </div>
             ) : (
-              <div className="p-4 bg-surface-container-high border border-outline-variant/40">
-                <p className="text-xs uppercase tracking-[0.2em] text-primary font-bold">
-                  Session Active
-                </p>
-                <p className="text-sm text-white mt-2 font-semibold">
-                  {user.fullname || user.email || "User"}
-                </p>
-                <p className="text-[10px] text-outline mt-1 font-mono uppercase truncate">{user.email}</p>
+              <div className="p-3.5 bg-neutral-900 border border-white/15">
+                <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-emerald-400">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
+                    LINK ACTIVE
+                  </span>
+                  <span>GROQ LPU</span>
+                </div>
+                <div className="font-headline font-bold text-xs text-white mt-1.5 truncate">
+                  {user.fullname || user.email}
+                </div>
+                <div className="text-[10px] font-mono text-neutral-500 truncate">
+                  {user.email}
+                </div>
               </div>
             )}
           </div>
@@ -229,20 +377,24 @@ const ChatTerminal = () => {
           <div
             id="recent-messages"
             ref={recentMessagesRef}
-            className="flex-1 overflow-y-auto no-scrollbar px-6 space-y-2 pb-6"
+            className="flex-1 overflow-y-auto no-scrollbar px-4 py-4 space-y-1.5"
           >
-            <div className="label-md font-label uppercase text-[10px] tracking-[0.2em] text-outline mb-4">
-              Stored Conversations
+            <div className="font-mono uppercase text-[10px] tracking-[0.2em] text-neutral-500 px-2 mb-3 flex items-center justify-between">
+              <span>STORED THREADS</span>
+              <span className="text-[9px] bg-white/10 px-1.5 py-0.5 text-neutral-400">
+                {allChats.length}
+              </span>
             </div>
+
             {historyLoading && (
-              <div className="text-[10px] font-mono text-outline uppercase tracking-widest animate-pulse">
-                Syncing history...
+              <div className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest px-2 animate-pulse">
+                Syncing vault...
               </div>
             )}
-            
+
             {!historyLoading && allChats.length === 0 && user && (
-              <div className="text-[10px] font-mono text-outline/50 uppercase tracking-widest italic">
-                No archived sessions found.
+              <div className="text-[10px] font-mono text-neutral-600 uppercase tracking-widest px-2 italic">
+                No archived threads found.
               </div>
             )}
 
@@ -250,65 +402,86 @@ const ChatTerminal = () => {
               <button
                 key={chat._id}
                 onClick={() => loadChat(chat._id)}
-                className={`w-full text-left p-4 bg-surface-container-high border-l-4 transition-all duration-200 ${
-                  chatId === chat._id ? "border-primary bg-surface-container-highest" : "border-outline-variant/30 hover:border-primary/50"
+                className={`w-full text-left p-3 border transition-colors ${
+                  chatId === chat._id
+                    ? "border-white bg-white/10 text-white"
+                    : "border-white/10 bg-neutral-900/60 hover:border-white/30 text-neutral-400 hover:text-white"
                 }`}
               >
-                <div className="font-label uppercase text-[10px] font-bold tracking-widest text-primary mb-1 truncate">
+                <div className="font-headline uppercase text-[11px] font-bold tracking-wider truncate mb-1">
                   {chat.title || "Untitled Session"}
                 </div>
-                <div className="text-[8px] text-outline font-mono uppercase">
-                  ID: {chat?._id ? String(chat._id).slice(-8) : "N/A"}
+                <div className="text-[8px] font-mono text-neutral-500 flex justify-between">
+                  <span>ID: {String(chat._id).slice(-6)}</span>
+                  <span>{formatTime(chat.updatedAt)}</span>
                 </div>
               </button>
             ))}
           </div>
-
-          <div className="p-6 bg-surface-container-low border-t border-outline-variant/20">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => messageInputRef.current?.focus()}
-                className="w-10 h-10 bg-primary flex items-center justify-center"
-              >
-                <span className="material-symbols-outlined text-on-primary">
-                  terminal
-                </span>
-              </button>
-              <div className="flex-1">
-                <div className="font-label text-xs font-bold uppercase tracking-tighter">
-                  {user?.fullname || "Guest"}
-                </div>
-                <div className="text-[10px] text-outline uppercase tracking-widest">
-                  {user ? "Protocol Active" : "Awaiting login"}
-                </div>
-              </div>
-            </div>
-          </div>
         </aside>
 
-        <main className="flex-1 flex flex-col relative dot-pattern">
-          <div className="flex-1 overflow-y-auto p-8 space-y-6 no-scrollbar">
+        {/* Backdrop for mobile sidebar */}
+        {sidebarOpen && (
+          <div
+            onClick={() => setSidebarOpen(false)}
+            className="md:hidden fixed inset-0 bg-black/70 z-30"
+          ></div>
+        )}
+
+        {/* Main Conversation Stream */}
+        <main className="flex-1 flex flex-col relative technical-grid dot-pattern bg-black">
+          <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 no-scrollbar">
+            {/* Status Beacon Bar */}
             <div className="flex justify-center">
-              <div className="px-4 py-1 bg-surface-container-highest font-mono text-[10px] text-outline tracking-widest uppercase">
-                {user
-                  ? "Secure Neural Link Established // E2EE Active"
-                  : "Authentication Required // Login to Continue"}
+              <div className="px-4 py-1.5 bg-neutral-900 border border-white/15 font-mono text-[10px] text-neutral-400 tracking-widest uppercase flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
+                <span>
+                  {user
+                    ? `NEURAL LINK ESTABLISHED // E2EE ACTIVE // SESSION: ${chatId ? String(chatId).slice(-6) : 'READY'}`
+                    : "OPERATIVE AUTHENTICATION REQUIRED // LOGIN TO ACCESS CORE"}
+                </span>
               </div>
             </div>
 
+            {/* Empty State / Suggested Prompt Cards */}
             {messages.length === 0 && !chatLoading && (
-              <div className="max-w-2xl mx-auto p-6 border border-outline-variant/30 bg-surface-container-high">
-                <p className="font-mono text-xs text-primary mb-3">
-                  {user
-                    ? "> Protocol ready. All queries are being archived to your secure ID."
-                    : "> Identity verification required. Please authenticate via the landing portal."}
-                </p>
-                <p className="text-sm text-outline">
-                  Select a previous session from the archive or initialize a new command sequence to begin data processing.
-                </p>
+              <div className="max-w-3xl mx-auto my-8 space-y-6">
+                <div className="p-6 border border-white/20 bg-neutral-900/80 backdrop-blur-sm">
+                  <div className="flex items-center gap-2 mb-2 font-mono text-xs uppercase tracking-widest text-emerald-400 font-bold">
+                    <span className="material-symbols-outlined text-sm">terminal</span>
+                    <span>MONOLITH CORE READY</span>
+                  </div>
+                  <p className="font-body text-sm text-neutral-300 leading-relaxed">
+                    Directives sent here are executed via high-throughput Groq LPU hardware with persistent context retention. Choose a sample prompt below or input your query.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {starterPrompts.map((item, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleSend(item.prompt)}
+                      className="text-left p-4 bg-neutral-900/50 border border-white/10 hover:border-white hover:bg-white/5 transition-all group"
+                    >
+                      <div className="flex justify-between items-center text-[9px] font-mono text-emerald-400 mb-2 uppercase tracking-widest">
+                        <span>{item.tag}</span>
+                        <span className="material-symbols-outlined text-xs group-hover:translate-x-1 transition-transform">
+                          arrow_forward
+                        </span>
+                      </div>
+                      <div className="font-headline uppercase text-xs font-bold text-white mb-1">
+                        {item.title}
+                      </div>
+                      <p className="font-body text-[11px] text-neutral-400 line-clamp-2 leading-relaxed">
+                        {item.prompt}
+                      </p>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
+            {/* Messages Feed */}
             {messages.map((item, index) => {
               const isUser = item.role === "user";
               return (
@@ -318,125 +491,104 @@ const ChatTerminal = () => {
                     isUser ? "items-end max-w-2xl ml-auto" : "items-start max-w-4xl"
                   }`}
                 >
-                  <div
-                    className={`font-label text-[10px] uppercase tracking-widest mb-2 ${
-                      isUser ? "text-outline" : "text-primary"
-                    }`}
-                  >
-                    {isUser ? "USER" : "MONOLITH_CORE"} [{formatTime(item.createdAt)}]
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span
+                      className={`font-mono text-[9px] uppercase tracking-widest ${
+                        isUser ? "text-neutral-400" : "text-emerald-400 font-bold"
+                      }`}
+                    >
+                      {isUser ? "OPERATIVE" : "MONOLITH_CORE"} [{formatTime(item.createdAt)}]
+                    </span>
+                    {!isUser && (
+                      <button
+                        type="button"
+                        onClick={() => copyFullMessage(item.content, index)}
+                        className="text-neutral-500 hover:text-white transition-colors"
+                        title="Copy Response"
+                      >
+                        <span className="material-symbols-outlined text-[13px]">
+                          {copiedMessageId === index ? "check" : "content_copy"}
+                        </span>
+                      </button>
+                    )}
                   </div>
+
                   <div
                     className={`p-5 border ${
                       isUser
-                        ? "bg-primary text-on-primary border-primary"
-                        : "bg-surface-container-high text-on-surface border-outline-variant/30 w-full"
+                        ? "bg-white text-black border-white shadow-[3px_3px_0px_0px_rgba(255,255,255,0.2)] font-medium"
+                        : "bg-neutral-900/90 text-white border-white/20 w-full"
                     }`}
                   >
-                    <div className="font-body text-sm leading-relaxed whitespace-pre-wrap">
-                      {item.content}
-                    </div>
+                    <FormattedMessage content={item.content} role={item.role} />
                   </div>
                 </div>
               );
             })}
 
+            {/* Active AI Processing Indicator */}
             {chatLoading && (
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-primary animate-pulse"></div>
-                <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary">
-                  Processing your request...
+              <div className="flex items-center gap-3 p-4 bg-neutral-900/80 border border-white/20 max-w-sm">
+                <div className="w-2 h-2 bg-emerald-400 animate-ping"></div>
+                <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-neutral-300">
+                  LPU INFERENCE IN PROGRESS...
                 </div>
               </div>
             )}
+
+            <div ref={messagesEndRef} />
           </div>
 
-          <div className="p-8 bg-surface-container-lowest border-t border-outline-variant/30">
+          {/* Bottom Directive Input Box */}
+          <div className="p-4 md:p-6 bg-neutral-950 border-t border-white/10">
             <div className="max-w-4xl mx-auto">
-              <div className="flex items-end bg-surface-container-high border-2 border-outline-variant focus-within:border-primary transition-none">
+              <div className="flex items-end bg-neutral-900 border-2 border-white/20 focus-within:border-white transition-colors">
                 <textarea
                   ref={messageInputRef}
                   value={messageInput}
                   onChange={(event) => setMessageInput(event.target.value)}
                   onKeyDown={handleInputKeyDown}
                   disabled={!user || chatLoading}
-                  className="flex-1 bg-transparent border-none outline-none focus:ring-0 py-4 px-4 font-mono text-sm tracking-wider placeholder:text-outline-variant/50 resize-none no-scrollbar text-white disabled:opacity-50"
+                  className="flex-1 bg-transparent border-none outline-none focus:ring-0 py-3.5 px-4 font-mono text-sm tracking-wider placeholder:text-neutral-600 resize-none no-scrollbar text-white disabled:opacity-50"
                   placeholder={
                     user
-                      ? "INPUT COMMAND OR QUERY_"
-                      : "AUTHENTICATION REQUIRED_"
+                      ? "INPUT COMMAND OR QUERY DIRECTIVE... [ENTER TO DISPATCH]"
+                      : "AUTHENTICATION REQUIRED TO DISPATCH COMMANDS_"
                   }
-                  rows={1}
+                  rows={2}
                 />
                 <button
-                  onClick={handleSend}
+                  onClick={() => handleSend()}
                   disabled={!user || !messageInput.trim() || chatLoading}
-                  className="p-4 bg-primary text-on-primary hover:invert transition-none disabled:opacity-50"
+                  className="p-3.5 bg-white text-black hover:bg-neutral-200 transition-none disabled:opacity-40 m-1 flex items-center justify-center font-bold"
+                  aria-label="Send Directive"
                 >
-                  <span
-                    className="material-symbols-outlined"
-                    style={{ fontVariationSettings: '"FILL" 1' }}
-                  >
+                  <span className="material-symbols-outlined text-lg">
                     send
                   </span>
                 </button>
               </div>
 
               {chatError && (
-                <p className="mt-3 text-xs text-red-400 font-mono">{chatError}</p>
+                <div className="mt-2.5 text-xs text-red-400 font-mono flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm">error</span>
+                  <span>{chatError}</span>
+                </div>
               )}
 
-              <div className="mt-3 flex justify-between">
+              <div className="mt-2.5 flex flex-wrap justify-between items-center text-[9px] font-mono text-neutral-500 uppercase tracking-widest">
                 <div className="flex gap-4">
-                  <span className="font-mono text-[9px] text-outline uppercase tracking-widest">
-                    [CTRL+ENTER] TO SEND
-                  </span>
-                  <span className="font-mono text-[9px] text-outline uppercase tracking-widest">
-                    MONOLITH OS V4.2.0
-                  </span>
+                  <span>[ENTER] SEND DIRECTIVE</span>
+                  <span>[SHIFT+ENTER] NEWLINE</span>
                 </div>
-                <div className="font-mono text-[9px] text-primary uppercase tracking-widest">
-                  SESSION_ID: {chatId ? String(chatId).slice(-8) : "INITIALIZING..."}
+                <div>
+                  CORE: GROQ LPU // PERSISTED: ATLAS
                 </div>
               </div>
             </div>
           </div>
         </main>
       </div>
-
-      <footer className="flex flex-col md:flex-row justify-between items-center w-full px-8 py-4 bg-neutral-950 border-t border-outline-variant/10 z-50">
-        <Link to="/#home" className="text-lg font-bold text-white font-headline uppercase">
-          MONOLITH
-        </Link>
-        <div className="font-label text-[10px] uppercase tracking-[0.2em] text-neutral-600">
-          (C) 2026 MONOLITHIC INTELLIGENCE. ALL RIGHTS RESERVED.
-        </div>
-        <div className="flex gap-8">
-          <Link
-            className="font-label text-[10px] uppercase tracking-[0.2em] text-neutral-600 hover:text-white transition-none"
-            to="/#flow"
-          >
-            PROTOCOL
-          </Link>
-          <Link
-            className="font-label text-[10px] uppercase tracking-[0.2em] text-neutral-600 hover:text-white transition-none"
-            to="/terminal"
-          >
-            TERMINAL
-          </Link>
-          <Link
-            className="font-label text-[10px] uppercase tracking-[0.2em] text-neutral-600 hover:text-white transition-none"
-            to="/#status"
-          >
-            STATUS
-          </Link>
-          <Link
-            className="font-label text-[10px] uppercase tracking-[0.2em] text-neutral-600 hover:text-white transition-none"
-            to="/#privacy"
-          >
-            PRIVACY
-          </Link>
-        </div>
-      </footer>
     </div>
   );
 };

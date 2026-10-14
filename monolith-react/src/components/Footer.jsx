@@ -1,54 +1,58 @@
-import React from "react";
-import { Link } from "react-router-dom";
+import React from 'react';
+import { Link } from 'react-router-dom';
 
 const Footer = () => {
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
-    <footer className="bg-neutral-950 flex flex-col md:flex-row justify-between items-center w-full px-8 py-12">
-      <div className="mb-8 md:mb-0">
-        <div className="text-lg font-bold text-white font-['Space_Grotesk'] uppercase mb-2">
-          MONOLITH
+    <footer className="bg-neutral-950 border-t border-white/10 px-6 md:px-12 py-12 text-white">
+      <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-2.5 h-2.5 bg-white"></span>
+            <span className="text-xl font-headline font-black uppercase tracking-tighter">
+              MONOLITH
+            </span>
+          </div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-neutral-500">
+            (C) {new Date().getFullYear()} MONOLITH INTELLIGENCE. ALL SYSTEMS OPERATIONAL.
+          </p>
         </div>
-        <p className="font-['Space_Grotesk'] text-[10px] uppercase tracking-[0.2em] text-neutral-600">
-          (C) 2026 MONOLITHIC INTELLIGENCE. ALL RIGHTS RESERVED.
-        </p>
-      </div>
-      <div className="flex flex-wrap justify-center gap-8 font-['Space_Grotesk'] text-[10px] uppercase tracking-[0.2em]">
-        <Link className="text-neutral-600 hover:text-white transition-none" to="/#flow">
-          Protocol
-        </Link>
-        <Link className="text-neutral-600 hover:text-white transition-none" to="/terminal">
-          Terminal
-        </Link>
-        <Link className="text-neutral-600 hover:text-white transition-none" to="/#status">
-          Status
-        </Link>
-        <Link className="text-neutral-600 hover:text-white transition-none" to="/#privacy">
-          Privacy
-        </Link>
-      </div>
-      <div className="mt-8 md:mt-0 flex gap-4">
-        <Link
-          to="/terminal"
-          className="w-8 h-8 border border-neutral-800 flex items-center justify-center hover:border-white transition-colors cursor-pointer"
-        >
-          <span
-            className="material-symbols-outlined text-sm text-neutral-500"
-            data-icon="terminal"
+
+        <div className="flex flex-wrap justify-center gap-8 font-headline text-xs uppercase tracking-wider font-bold">
+          <Link className="text-neutral-400 hover:text-white transition-colors" to="/#home">
+            HOME
+          </Link>
+          <Link className="text-neutral-400 hover:text-white transition-colors" to="/#flow">
+            SYSTEMS
+          </Link>
+          <Link className="text-neutral-400 hover:text-white transition-colors" to="/#features">
+            FEATURES
+          </Link>
+          <Link className="text-neutral-400 hover:text-white transition-colors" to="/terminal">
+            TERMINAL
+          </Link>
+          <Link className="text-neutral-400 hover:text-white transition-colors" to="/#status">
+            METRICS
+          </Link>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 font-mono text-[10px] text-emerald-400 border border-emerald-500/30 px-3 py-1 bg-emerald-950/20">
+            <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping"></span>
+            <span>SYSTEM HEALTH: 100%</span>
+          </div>
+
+          <button
+            onClick={scrollToTop}
+            title="Scroll to top"
+            className="w-9 h-9 border border-white/20 flex items-center justify-center hover:bg-white hover:text-black transition-colors"
           >
-            terminal
-          </span>
-        </Link>
-        <Link
-          to="/#features"
-          className="w-8 h-8 border border-neutral-800 flex items-center justify-center hover:border-white transition-colors cursor-pointer"
-        >
-          <span
-            className="material-symbols-outlined text-sm text-neutral-500"
-            data-icon="code"
-          >
-            code
-          </span>
-        </Link>
+            <span className="material-symbols-outlined text-lg">arrow_upward</span>
+          </button>
+        </div>
       </div>
     </footer>
   );
