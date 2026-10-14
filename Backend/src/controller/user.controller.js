@@ -95,15 +95,13 @@ const loginUser = asynchandler(async (req, res) => {
 });
 
 const logoutUser = asynchandler(async (req, res) => {
-  if (!req.user?._id) {
-    throw new APIError(401, "Unauthorized request");
+  if (req.user?._id) {
+    await User.findByIdAndUpdate(
+      req.user._id,
+      { $unset: { refreshToken: 1 } },
+      { new: true }
+    );
   }
-
-  await User.findByIdAndUpdate(
-    req.user._id,
-    { $unset: { refreshToken: 1 } },
-    { new: true }
-  );
 
   const options = {
     httpOnly: true,

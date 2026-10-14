@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getCurrentUser, loginUser, logoutUser } from '../service/axios';
-
+import { getCurrentUser, loginUser, logoutUser, registerUser } from '../service/axios';
 import { AuthContext } from './AuthContextObject';
 
 export const AuthProvider = ({ children }) => {
@@ -39,7 +38,6 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signUp = async (registrationData) => {
-    const { registerUser } = await import('../service/axios');
     await registerUser(registrationData);
     // After successful registration, auto-login (handled by backend setting cookies)
     return await login({
@@ -65,5 +63,3 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
-
-

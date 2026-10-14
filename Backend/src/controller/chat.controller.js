@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { ApiResponse } from "../utils/apiResponse.js";
 import { asynchandler } from "../utils/asyncHandler.js";
 import { APIError } from "../utils/apiError.js";
@@ -14,6 +15,10 @@ const sendMessage = asynchandler(async (req, res) => {
 
   let chat;
   if (chatId) {
+    if (!mongoose.Types.ObjectId.isValid(chatId)) {
+      throw new APIError(400, "Invalid Chat ID format");
+    }
+
     chat = await Chat.findById(chatId);
     if (!chat) {
       throw new APIError(404, "Chat not found");
@@ -68,6 +73,10 @@ const getAllChats = asynchandler(async (req, res) => {
 
 const getChatById = asynchandler(async (req, res) => {
   const { chatId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(chatId)) {
+    throw new APIError(400, "Invalid Chat ID format");
+  }
 
   const chat = await Chat.findById(chatId);
 

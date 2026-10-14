@@ -19,7 +19,9 @@ const verifyJwt = asynchandler(async (req, res, next) => {
     throw new APIError(401, "Invalid or expired access token");
   }
 
-  const user = await User.findById(decodedToken._id).select("-password -refreshToken");
+  const user = await User.findById(decodedToken._id).select(
+    "-password -refreshToken"
+  );
   if (!user) {
     throw new APIError(401, "User not found for this token");
   }
@@ -28,4 +30,25 @@ const verifyJwt = asynchandler(async (req, res, next) => {
   next();
 });
 
-export { verifyJwt };
+const optionalVerifyJwt = asynchandler(async (req, res, next) => {
+  const token =
+    req.cookies?.accessToken ||
+    req.header("Authorization")?.replace("Bearer ", "").trim();
+
+  if (token) {
+    try {
+      const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+      const user = await User.findById(decodedToken._id).select(
+        "-password -refreshToken"
+      );
+      if (user) {
+        req.user = user;
+      }
+    } catch {
+      // Ignore token verification errors during optional auth (e.g. logout)
+    }
+  }
+  next();
+});
+
+export { verifyJwt, optionalVerifyJwt };

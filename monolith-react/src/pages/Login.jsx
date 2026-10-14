@@ -33,7 +33,7 @@ const Login = () => {
         setError('Login failed. No access token received.');
       }
     } catch (err) {
-      setError(err?.response?.data?.message || 'Failed to authenticate.');
+      setError(err?.message || err?.response?.data?.message || 'Failed to authenticate.');
     } finally {
       setLoading(false);
     }

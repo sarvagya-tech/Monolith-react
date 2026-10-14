@@ -17,7 +17,7 @@ const CTA = () => {
         </p>
         <div className="inline-block relative group">
           <div className="absolute inset-0 bg-primary translate-x-2 translate-y-2 group-hover:translate-x-0 group-hover:translate-y-0 transition-transform"></div>
-          <Link to="/register" className="relative bg-black text-white px-16 py-6 font-headline font-black text-2xl uppercase tracking_widest border-2 border-primary transition-colors hover:bg-primary hover:text-black inline-block">
+          <Link to="/register" className="relative bg-black text-white px-16 py-6 font-headline font-black text-2xl uppercase tracking-widest border-2 border-primary transition-colors hover:bg-primary hover:text-black inline-block">
             INITIALIZE NOW
           </Link>
         </div>

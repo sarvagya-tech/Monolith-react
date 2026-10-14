@@ -37,7 +37,7 @@ const Register = () => {
       await signUp({ fullname, email, password });
       // signUp automatically logs in and user state update will trigger redirection via useEffect
     } catch (err) {
-      setError(err?.response?.data?.message || 'Failed to register.');
+      setError(err?.message || err?.response?.data?.message || 'Failed to register.');
     } finally {
       setLoading(false);
     }

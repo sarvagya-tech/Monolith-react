@@ -16,6 +16,8 @@ const getGroq = () => {
 const callAI = async (messages) => {
   try {
     const groqInstance = getGroq();
+    const model = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
+
     const chatCompletion = await groqInstance.chat.completions.create({
       messages: [
         {
@@ -24,14 +26,19 @@ const callAI = async (messages) => {
         },
         ...messages,
       ],
-      model: "llama-3.3-70b-versatile",
+      model,
     });
 
     return chatCompletion.choices[0]?.message?.content || "";
   } catch (error) {
     console.error("AI Service Error:", error);
-    throw new APIError(500, "Failed to call AI API", [error?.message || "Unknown AI error"]);
+    const errorMessage =
+      error?.error?.message || error?.message || "Unknown AI error";
+    throw new APIError(500, `Failed to call AI API: ${errorMessage}`, [
+      errorMessage,
+    ]);
   }
 };
 
 export { callAI };
+

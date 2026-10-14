@@ -52,7 +52,8 @@ apiClient.interceptors.response.use(
     return Promise.reject({
       status,
       message,
-      originalError: error
+      originalError: error,
+      response: error.response,
     });
   }
 );
