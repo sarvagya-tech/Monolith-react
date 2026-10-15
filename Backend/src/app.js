@@ -6,20 +6,29 @@ import chatRouter from "./routes/chat.routes.js";
 
 const app = express();
 
+const envOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(",").map((o) => o.trim().replace(/\/$/, ""))
+  : [];
+
 const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
-  process.env.CORS_ORIGIN,
+  ...envOrigins,
 ].filter(Boolean);
 
 app.use(
   cors({
     origin: (origin, callback) => {
       // allow requests with no origin (like mobile apps, curl, postman)
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin) return callback(null, true);
+      const cleanOrigin = origin.replace(/\/$/, "");
+      if (
+        allowedOrigins.includes(cleanOrigin) ||
+        process.env.NODE_ENV !== "production"
+      ) {
         return callback(null, true);
       }
-      return callback(null, true); // Permissive in dev to prevent blocking
+      return callback(null, true);
     },
     credentials: true,
   })
